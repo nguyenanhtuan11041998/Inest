@@ -162,6 +162,12 @@ def init_comparedashboard(server):
                                     {'label': 'LCS8', 'value': 'LCS8'},
                                     {'label': 'LCS9', 'value': 'LCS9'},
                                     {'label': 'LCS10', 'value': 'LCS10'},
+                                    {'label': 'LCS12', 'value': 'LCS12'},
+                                    {'label': 'LCS14', 'value': 'LCS14'},
+                                    {'label': 'LCS15', 'value': 'LCS15'},
+                                    {'label': 'LCS16', 'value': 'LCS16'},
+                                    {'label': 'LCS17', 'value': 'LCS17'},
+                                    {'label': 'LCS18', 'value': 'LCS18'},
                                     {'label': 'LCS19', 'value': 'LCS19'},
                                     {'label': 'LCS20', 'value': 'LCS20'},
                                 ],
@@ -270,8 +276,7 @@ def init_callbacks(comparedashapp):
          Output('line-output', 'figure'),
          Output('line-output', 'style'),
          Output('bar-output', 'figure'),
-         Output('bar-output', 'style')
-         ],
+         Output('bar-output', 'style')],
         [Input('my-date-picker-range', 'start_date'),
             Input('my-date-picker-range', 'end_date'),
          Input('demo-dropdown', 'value')]
@@ -316,13 +321,14 @@ def init_callbacks(comparedashapp):
             dfLCS.rename(columns={'group_date': 'date', 'pm2_5 mean': 'pm2_5'}, inplace=True)
 
             dfCompare = pd.merge(dfGRI, dfLCS, on="date")
+            dfCompare['Bias'] = (dfCompare['pm2_5_y']/dfCompare['pm2_5_x'] - 1)*100
+
             fulfillment = round(len(dfCompare)/len(dfGRI), 3)
             pearson_cor = round(dfCompare['pm2_5_x'].corr(dfCompare['pm2_5_y'], method='pearson'),2)
             rmse = round(mean_squared_error(dfCompare['pm2_5_x'], dfCompare['pm2_5_y'], squared=False),3)
             table_data = [{"Số điểm quan sát": [len(dfGRI)], "Tỉ lệ lấp đầy": [fulfillment], "Pearson Correlation": [pearson_cor],
-                          "RMSE": [rmse]}]
-
-            columns_name = ["Số điểm quan sát", "Tỉ lệ lấp đầy", "Pearson Correlation", "RMSE"]
+                          "RMSE": [rmse], "Bias min": [round(dfCompare['Bias'].min(), 2)], "Bias max": [round(dfCompare['Bias'].max(), 2)]}]
+            columns_name = ["Số điểm quan sát", "Tỉ lệ lấp đầy", "Pearson Correlation", "RMSE", "Bias min", "Bias max"]
             columns=[{"name": i, "id": i} for i in columns_name]
 
             fig = px.scatter(x=dfCompare['pm2_5_x'], y=dfCompare['pm2_5_y'],
@@ -352,6 +358,11 @@ def init_callbacks(comparedashapp):
             fig_line.add_trace(
                 go.Line(x=dfLCS_raw['date-local'], y=dfLCS_raw['pm2_5'], name="Dữ liệu LCS")
             )
+            fig_line.update_layout(
+                title="Nồng độ bụi PM2.5 theo thời gian".format(value),
+                xaxis_title="Thời gian",
+                yaxis_title="Giá trị (µg/m3)")
+
             caption = "Bảng đánh giá thiết bị {} theo trung bình ngày".format(value)
 
             bardata = {"Devices": ["GRIMM03", value], "Conc": [dfGRI_raw['pm2_5'].mean(), dfLCS_raw['pm2_5'].mean()]}

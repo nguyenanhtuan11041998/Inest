@@ -108,7 +108,6 @@ def init_dashboard(server):
                                 dcc.Dropdown(
                                     id='demo-dropdown',
                                     options=[
-                                        {'label': 'LCS17-test', 'value': 'LCS17-test'},
                                         {'label': 'GRIMM03', 'value': 'GRIMM03'},
                                         {'label': 'LCS1', 'value': 'LCS1'},
                                         {'label': 'LCS2', 'value': 'LCS2'},
