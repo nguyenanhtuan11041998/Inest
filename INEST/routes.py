@@ -107,6 +107,6 @@ def logout():
     del session['username']
     return redirect('/dashapp/')
 
-@app.errorhandler(404)
+@app.errorhandler()
 def page_not_found():
     return redirect("/")
