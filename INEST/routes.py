@@ -33,7 +33,7 @@ def mongoimport17(xlsx_path, coll_name):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def home():
     return redirect('/dashapp/')
 
@@ -107,6 +107,10 @@ def logout():
     del session['username']
     return redirect('/dashapp/')
 
-@app.errorhandler()
-def page_not_found():
+@app.errorhandler(404)
+def page_not_found(e):
+    return redirect("/")
+
+@app.errorhandler(500)
+def page_not_found(e):
     return redirect("/")
