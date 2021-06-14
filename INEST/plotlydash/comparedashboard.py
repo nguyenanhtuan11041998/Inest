@@ -85,7 +85,7 @@ def init_comparedashboard(server):
 
             html.Div([
                 html.A(
-                    html.H4(children='Hiệu chuẩn thiết bị',
+                    html.H4(children='Đánh giá thiết bị',
                             style={'text-decoration': 'underline',
                                    'text-decoration-color': 'rgb(255, 101, 131)',
                                    'text-shadow': '0px 0px 1px rgb(251, 251, 252)'}
@@ -207,7 +207,7 @@ def init_comparedashboard(server):
             id='table',
             fixed_rows={'headers': True},
             style_table={
-                'width': '50%',
+                'width': '70%',
                 'minWidth': '50%',
                 'marginLeft': 'auto',
                 'marginRight': 'auto'
@@ -237,7 +237,7 @@ def init_comparedashboard(server):
         ),
         html.Div(style={"display": "table", "width": "100%", "table-layout": "fixed", "border-spacing": "10px"},
                  children=[
-                     html.Div(style={"width": "150px", "display":"table-cell"}),
+                     html.Div(style={"width": "75px", "display":"table-cell"}),
                      html.Div(
                          style={"display": "table-cell"},
                          children=[
@@ -248,7 +248,7 @@ def init_comparedashboard(server):
                          children=[
                              dcc.Graph(id='bar-output')
                          ]),
-                     html.Div(style={"width": "150px", "display": "table-cell"}),
+                     html.Div(style={"width": "75px", "display": "table-cell"}),
         ]),
         # html.Div(
         #     children=[
@@ -321,19 +321,35 @@ def init_callbacks(comparedashapp):
             dfLCS.rename(columns={'group_date': 'date', 'pm2_5 mean': 'pm2_5'}, inplace=True)
 
             dfCompare = pd.merge(dfGRI, dfLCS, on="date")
-            dfCompare['Bias'] = (dfCompare['pm2_5_y']/dfCompare['pm2_5_x'] - 1)*100
+            dfCompare['Bias'] = dfCompare['pm2_5_y']/dfCompare['pm2_5_x'] - 1
 
-            fulfillment = round(len(dfCompare)/len(dfGRI), 3)
+            fulfillment = len(dfCompare)/len(dfGRI) * 100
             pearson_cor = round(dfCompare['pm2_5_x'].corr(dfCompare['pm2_5_y'], method='pearson'),2)
             rmse = round(mean_squared_error(dfCompare['pm2_5_x'], dfCompare['pm2_5_y'], squared=False),3)
-            table_data = [{"Số điểm quan sát": [len(dfGRI)], "Tỉ lệ lấp đầy": [fulfillment], "Pearson Correlation": [pearson_cor],
-                          "RMSE": [rmse], "Bias min": [round(dfCompare['Bias'].min(), 2)], "Bias max": [round(dfCompare['Bias'].max(), 2)]}]
-            columns_name = ["Số điểm quan sát", "Tỉ lệ lấp đầy", "Pearson Correlation", "RMSE", "Bias min", "Bias max"]
+            table_data = [{"Số điểm quan sát": [len(dfGRI)], "Mức độ hoàn thiện (%)": ["{:.1f}".format(fulfillment)], "Hệ số tương quan Pearson": ["{:.2f}".format(pearson_cor)],
+                          "RMSE": ["{:.2f}".format(rmse)], "Bias min (%)": ["{:.1f}".format(dfCompare['Bias'].min())], "Bias max (%)": ['{:.1f}'.format(dfCompare['Bias'].max())]}]
+
+            columns_name = ["Số điểm quan sát", "Mức độ hoàn thiện (%)", "Hệ số tương quan Pearson", "RMSE", "Bias min (%)", "Bias max (%)"]
             columns=[{"name": i, "id": i} for i in columns_name]
 
-            fig = px.scatter(x=dfCompare['pm2_5_x'], y=dfCompare['pm2_5_y'],
-                             labels={"x": "GRIMM03", "y": value},
-                             title="So sánh nồng độ PM2.5 giữa GRIMM03 và {}".format(value))
+            fig = go.Figure()
+            fig.add_trace(
+                go.Scatter(x=dfCompare['pm2_5_x'], y=dfCompare['pm2_5_y'], mode='markers')
+            )
+            fig.add_shape(type="line",
+                          x0=0, y0=0, x1=300, y1=300,
+                          line=dict(
+                              color="red",
+                              width=2,
+                          )
+                          )
+            fig.update_layout(
+                title="So sánh nồng độ PM2.5 giữa GRIMM03 và {}".format(value),
+                xaxis_title="GRIMM03",
+                yaxis_title=value)
+            # fig = px.scatter(x=dfCompare['pm2_5_x'], y=dfCompare['pm2_5_y'],
+            #                  labels={"x": "GRIMM03", "y": value},
+            #                  title="So sánh nồng độ PM2.5 giữa GRIMM03 và {}".format(value))
 
             fig.update_xaxes(
                 range=[0, 300],  # sets the range of xaxis

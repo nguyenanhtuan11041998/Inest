@@ -45,7 +45,7 @@ def init_dashboard(server):
 
                 html.Div([
                     html.A(
-                        html.H4(children='Hiệu chuẩn thiết bị'),
+                        html.H4(children='Đánh giá thiết bị'),
                         href='/compare/'
                     )
                 ],
