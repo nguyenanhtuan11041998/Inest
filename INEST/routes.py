@@ -9,14 +9,13 @@ import bcrypt
 import pandas as pd
 import json
 from datetime import timedelta
+import sqlite3
 
 UPLOAD_FOLDER = './uploads'
 ALLOWED_EXTENSIONS = {'csv', 'xlsx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+conn = sqlite3.connect("./users.db")
 
-client = pymongo.MongoClient(
-    "mongodb+srv://tuanna:tuanna123@bkluster.2bddf.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
-db = client.data_raw
 def mongoimport17(xlsx_path, coll_name):
     """ Imports a csv file at path csv_name to a mongo colection
     returns: count of the documants in the new collection
@@ -25,6 +24,19 @@ def mongoimport17(xlsx_path, coll_name):
     data = pd.read_excel(xlsx_path)
     data['updated_time'] = pd.to_datetime(data['time'], format="%m/%d/%Y %H:%M:%S %p") - timedelta(hours=7)
     data.rename(columns={'temp_location1': 't', 'hum_location1': 'h', 'pm25_location1': 'pm2_5', 'aqi_location1': 'aqi'}, inplace = True)
+    payload = json.loads(data.to_json(orient='records'))
+    coll.insert(payload)
+    return coll.count()
+
+def grimm03(dat_path, coll_name):
+    """ Imports a -M.dat file to a mongo colection
+    returns: count of the documants in the new collection
+    """
+
+    coll = db[coll_name]
+    data = pd.read_csv(dat_path, sep='\t', header=None, skipinitialspace=True)
+    data['updated_time'] = pd.to_datetime(data['Datetime'], format="%d/%m/%Y %H:%M:%S %p") - timedelta(hours=7)
+    data.rename(columns={'PM10': 'pm10', 'PM2.5': 'pm2_5','PM1': 'pm1'}, inplace=True)
     payload = json.loads(data.to_json(orient='records'))
     coll.insert(payload)
     return coll.count()
@@ -53,8 +65,10 @@ def upload_file():
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             try:
-                mongoimport17(os.path.join(app.config['UPLOAD_FOLDER'], filename), request.form['devices'])
+                # mongoimport17(os.path.join(app.config['UPLOAD_FOLDER'], filename), request.form['devices'])
+                mongoimport17(os.path.join(app.config['UPLOAD_FOLDER'], filename), "test")
                 flash('Uploaded file {} successfully'.format(filename), 'success')
+                print("daa")
             except:
                 flash('Uploaded file {} failed'.format(filename), 'error')
             return redirect(request.url)
@@ -71,36 +85,19 @@ def upload_file():
 @app.route('/login/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        users = db.users
-        login_user = users.find_one({'name': request.form['username']})
-
-        if login_user:
-            if bcrypt.hashpw(request.form['pass'].encode('utf-8'), login_user['password']) == login_user[
-                'password']:
-                session['username'] = request.form['username']
-                return redirect('/upload/')
-        flash ("Invalid username or password")
-        return redirect(request.url)
+        username = request.form['username']
+        password = request.form['password']
+        conn = sqlite3.connect("./users.db")
+        c = conn.cursor()
+        c.execute("SELECT  * FROM users  WHERE email=\'"+ username+"\'" +" AND password=\'"+password+"\'")
+        result = c.fetchone()
+        if result is not None:
+            session['username'] = request.form['username']
+            return redirect('/upload/')
+        else:
+            flash ("Invalid username or password")
+            return redirect(request.url)
     return render_template('login.html')
-
-@app.route('/register', methods=['POST', 'GET'])
-def register():
-    if 'username' in session:
-        if request.method == 'POST':
-            users = db.users
-            existing_user = users.find_one({'name': request.form['username']})
-
-            if existing_user is None:
-                hashpass = bcrypt.hashpw(request.form['pass'].encode('utf-8'), bcrypt.gensalt())
-                users.insert({'name': request.form['username'], 'password': hashpass})
-                session['username'] = request.form['username']
-                return redirect('/upload/')
-
-            return 'That username already exists!'
-
-        return render_template('register.html')
-    else:
-        return redirect("/")
 
 @app.route('/logout/')
 def logout():
@@ -112,5 +109,5 @@ def page_not_found(e):
     return redirect("/")
 
 @app.errorhandler(500)
-def page_not_found(e):
+def interal_server(e):
     return redirect("/")

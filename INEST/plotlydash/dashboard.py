@@ -14,10 +14,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pytz
 
-client = pymongo.MongoClient("mongodb+srv://tuanna:tuanna123@bkluster.2bddf.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
-db = client.data_raw
-
-def init_dashboard(server):
+def init_dashboard(server, db):
     dashapp = dash.Dash(__name__, server=server, url_base_pathname='/dashapp/')
     dashapp.layout = html.Div(
         children = [
@@ -223,11 +220,11 @@ def init_dashboard(server):
         ],
     )
 
-    init_callbacks(dashapp)
+    init_callbacks(dashapp, db)
 
     return dashapp.server
 
-def init_callbacks(dashapp):
+def init_callbacks(dashapp, db):
     @dashapp.callback(
             [Output('table','columns'),
             Output('table','data'),

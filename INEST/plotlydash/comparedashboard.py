@@ -16,9 +16,6 @@ from sklearn.metrics import mean_squared_error
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-client = pymongo.MongoClient("mongodb+srv://tuanna:tuanna123@bkluster.2bddf.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
-db = client.data_raw
-
 def to_group_day(d):
     if d.hour < 9:
         return d.date() - timedelta(days=1)
@@ -28,40 +25,41 @@ def to_group_day(d):
         if (d.minute < 30):
             return d.date() - timedelta(days=1)
 
-collGRIMM = db['GRIMM03']
-result2 = list(collGRIMM.find({"updated_time": {'$gte': 1610038800000, '$lt': 1619974800000}}, {"_id": 0, "updated_time": 1, "pm2_5": 1}))
-dfGRI = pd.DataFrame(result2)
-dfGRI = dfGRI.sort_values('updated_time')
-local_timezone = pytz.timezone("Asia/Ho_Chi_Minh")  # get pytz timezone
-dfGRI['date-local'] = dfGRI['updated_time'].apply(lambda d: datetime.fromtimestamp(d / 1000, local_timezone))
-dfGRI['group_date'] = dfGRI['date-local'].apply(lambda d: to_group_day(d))
-dfGRI['pm2_5'] = dfGRI['pm2_5'] * 1.7907 + 7.5745
 
-dfGRI_raw = dfGRI.copy()
-dfGRI_raw['day_dif'] = dfGRI_raw['updated_time'].diff()
-dfGRI_raw.at[0, 'day_dif'] = 0
-dfGRI_raw['day_dif'] = dfGRI_raw['day_dif']/3600/24/1000
-dfGRI_raw.loc[dfGRI_raw["day_dif"] >= 0.004, "pm2_5"] = None
+def init_comparedashboard(server, db):
+    collGRIMM = db['GRIMM03']
+    result2 = list(collGRIMM.find({"updated_time": {'$gte': 1610038800000, '$lt': 1619974800000}}, {"_id": 0, "updated_time": 1, "pm2_5": 1}))
+    dfGRI = pd.DataFrame(result2)
+    dfGRI = dfGRI.sort_values('updated_time')
+    local_timezone = pytz.timezone("Asia/Ho_Chi_Minh")  # get pytz timezone
+    dfGRI['date-local'] = dfGRI['updated_time'].apply(lambda d: datetime.fromtimestamp(d / 1000, local_timezone))
+    dfGRI['group_date'] = dfGRI['date-local'].apply(lambda d: to_group_day(d))
+    dfGRI['pm2_5'] = dfGRI['pm2_5'] * 1.7907 + 7.5745
 
-del dfGRI['date-local']
-del dfGRI['updated_time']
-# print(dfGRI)
-dfGRI = dfGRI.groupby(['group_date']).agg(['mean', 'count'])
-dfGRI.columns = [' '.join(str(i) for i in col) for col in dfGRI.columns]
-dfGRI.reset_index(inplace=True)
-dfGRI = dfGRI.drop(dfGRI[dfGRI['pm2_5 count'] < 240].index)
-cols = ['group_date', 'pm2_5 mean']
-dfGRI = dfGRI[cols]
-dfGRI.rename(columns={'group_date': 'date', 'pm2_5 mean': 'pm2_5'}, inplace=True)
-# dfCompare = pd.merge(dfGRI, dfLCS, on="date")
+    dfGRI_raw = dfGRI.copy()
+    dfGRI_raw['day_dif'] = dfGRI_raw['updated_time'].diff()
+    dfGRI_raw.at[0, 'day_dif'] = 0
+    dfGRI_raw['day_dif'] = dfGRI_raw['day_dif']/3600/24/1000
+    dfGRI_raw.loc[dfGRI_raw["day_dif"] >= 0.004, "pm2_5"] = None
 
-# print(dfCompare['pm2_5_x'].corr(dfCompare['pm2_5_y'], method='pearson'))
-# sns_plot  = sns.scatterplot(x="pm2_5_x", y="pm2_5_y", data=dfCompare)
-# sns_plot.figure.savefig("output.png")
-# rmse = mean_squared_error(dfCompare['pm2_5_x'], dfCompare['pm2_5_y'], squared = False)
-# print (rmse)
+    del dfGRI['date-local']
+    del dfGRI['updated_time']
+    # print(dfGRI)
+    dfGRI = dfGRI.groupby(['group_date']).agg(['mean', 'count'])
+    dfGRI.columns = [' '.join(str(i) for i in col) for col in dfGRI.columns]
+    dfGRI.reset_index(inplace=True)
+    dfGRI = dfGRI.drop(dfGRI[dfGRI['pm2_5 count'] < 240].index)
+    cols = ['group_date', 'pm2_5 mean']
+    dfGRI = dfGRI[cols]
+    dfGRI.rename(columns={'group_date': 'date', 'pm2_5 mean': 'pm2_5'}, inplace=True)
+    # dfCompare = pd.merge(dfGRI, dfLCS, on="date")
 
-def init_comparedashboard(server):
+    # print(dfCompare['pm2_5_x'].corr(dfCompare['pm2_5_y'], method='pearson'))
+    # sns_plot  = sns.scatterplot(x="pm2_5_x", y="pm2_5_y", data=dfCompare)
+    # sns_plot.figure.savefig("output.png")
+    # rmse = mean_squared_error(dfCompare['pm2_5_x'], dfCompare['pm2_5_y'], squared = False)
+    # print (rmse)
+
     comparedashboard = dash.Dash(__name__, server=server, url_base_pathname='/compare/')
     comparedashboard.layout = html.Div([
         html.Div([
@@ -263,11 +261,11 @@ def init_comparedashboard(server):
                 dcc.Graph(id='line-output')
             ]),
     ])
-    init_callbacks(comparedashboard)
+    init_callbacks(comparedashboard,db, dfGRI, dfGRI_raw)
 
     return comparedashboard.server
 
-def init_callbacks(comparedashapp):
+def init_callbacks(comparedashapp, db, dfGRI, dfGRI_raw):
     @comparedashapp.callback(
         [Output('table', 'columns'),
          Output('table', 'data'),
@@ -321,7 +319,7 @@ def init_callbacks(comparedashapp):
             dfLCS.rename(columns={'group_date': 'date', 'pm2_5 mean': 'pm2_5'}, inplace=True)
 
             dfCompare = pd.merge(dfGRI, dfLCS, on="date")
-            dfCompare['Bias'] = dfCompare['pm2_5_y']/dfCompare['pm2_5_x'] - 1
+            dfCompare['Bias'] = (dfCompare['pm2_5_y']/dfCompare['pm2_5_x'] - 1) * 100
 
             fulfillment = len(dfCompare)/len(dfGRI) * 100
             pearson_cor = round(dfCompare['pm2_5_x'].corr(dfCompare['pm2_5_y'], method='pearson'),2)
