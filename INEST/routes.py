@@ -12,31 +12,22 @@ from datetime import timedelta
 import sqlite3
 
 UPLOAD_FOLDER = './uploads'
-ALLOWED_EXTENSIONS = {'csv', 'xlsx'}
+ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'dat'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 conn = sqlite3.connect("./users.db")
-
-def mongoimport17(xlsx_path, coll_name):
-    """ Imports a csv file at path csv_name to a mongo colection
-    returns: count of the documants in the new collection
-    """
-    coll = db[coll_name]
-    data = pd.read_excel(xlsx_path)
-    data['updated_time'] = pd.to_datetime(data['time'], format="%m/%d/%Y %H:%M:%S %p") - timedelta(hours=7)
-    data.rename(columns={'temp_location1': 't', 'hum_location1': 'h', 'pm25_location1': 'pm2_5', 'aqi_location1': 'aqi'}, inplace = True)
-    payload = json.loads(data.to_json(orient='records'))
-    coll.insert(payload)
-    return coll.count()
+client = pymongo.MongoClient(
+    "mongodb+srv://tuanna:tuanna123@bkluster.2bddf.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
+db = client.data_raw
 
 def grimm03(dat_path, coll_name):
     """ Imports a -M.dat file to a mongo colection
     returns: count of the documants in the new collection
     """
-
     coll = db[coll_name]
     data = pd.read_csv(dat_path, sep='\t', header=None, skipinitialspace=True)
-    data['updated_time'] = pd.to_datetime(data['Datetime'], format="%d/%m/%Y %H:%M:%S %p") - timedelta(hours=7)
-    data.rename(columns={'PM10': 'pm10', 'PM2.5': 'pm2_5','PM1': 'pm1'}, inplace=True)
+    data.columns = ["Datetime", "pm10", "pm2_5", "pm1"]
+    data['updated_time'] = pd.to_datetime(data['Datetime'], format="%d/%m/%Y %I:%M:%S %p") - timedelta(hours=7)
+    # data.rename(columns={'PM10': 'pm10', 'PM2.5': 'pm2_5','PM1': 'pm1'}, inplace=True)
     payload = json.loads(data.to_json(orient='records'))
     coll.insert(payload)
     return coll.count()
@@ -65,8 +56,7 @@ def upload_file():
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             try:
-                # mongoimport17(os.path.join(app.config['UPLOAD_FOLDER'], filename), request.form['devices'])
-                mongoimport17(os.path.join(app.config['UPLOAD_FOLDER'], filename), "test")
+                grimm03(os.path.join(app.config['UPLOAD_FOLDER'], filename), request.form['devices'])
                 flash('Uploaded file {} successfully'.format(filename), 'success')
                 print("daa")
             except:
