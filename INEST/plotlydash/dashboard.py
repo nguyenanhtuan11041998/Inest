@@ -71,7 +71,7 @@ def init_dashboard(server, db):
                             className='col-2'),
                         html.Div(
                             [html.H5(
-                                children='Lọc theo hoảng thời gian:',
+                                children='Lọc theo khoảng thời gian:',
                                 style={'text-align': 'left', 'color': 'rgb(77, 79, 91)'}
                             ),
                                 html.Div(['Chọn khoảng thời gian: ',
